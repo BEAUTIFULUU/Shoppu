@@ -14,12 +14,7 @@ class CategoryView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return CategoryOutputSerializer
-        elif self.request.method == 'POST':
-            return CategoryInputSerializer
-        else:
-            return CategoryOutputSerializer
+        return CategoryInputSerializer if self.request.method == 'POST' else CategoryOutputSerializer
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -31,18 +26,17 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         return get_category_details(category_id=category_id)
 
     def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return CategoryOutputSerializer
-        elif self.request.method == 'PUT':
-            return CategoryInputSerializer
+        return CategoryInputSerializer if self.request.method == 'PUT' else CategoryOutputSerializer
 
     def update(self, request, *args, **kwargs):
         update_category = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        update_category.title = serializer.validated_data['title']
-        update_category.description = serializer.validated_data['description']
+        fields_to_update = ['title', 'description']
+        for field in fields_to_update:
+            setattr(update_category, field, serializer.validated_data.get(field, getattr(update_category, field)))
+
         update_category.save()
 
         output_serializer = CategoryOutputSerializer(update_category)
@@ -55,10 +49,7 @@ class ProductView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return ProductOutputSerializer
-        elif self.request.method == 'POST':
-            return ProductInputSerializer
+        return ProductInputSerializer if self.request.method == 'POST' else ProductOutputSerializer
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -70,23 +61,16 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         return get_product_details(product_id=product_id)
 
     def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return ProductOutputSerializer
-        elif self.request.method == 'PUT':
-            return ProductInputSerializer
-        else:
-            return ProductOutputSerializer
+        return ProductInputSerializer if self.request.method == 'PUT' else ProductOutputSerializer
 
     def update(self, request, *args, **kwargs):
         updated_product = self.get_object()
         serializer = self.get_serializer(updated_product, data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        updated_product.title = serializer.validated_data.get('title', updated_product.title)
-        updated_product.description = serializer.validated_data.get('description', updated_product.description)
-        updated_product.unit_price = serializer.validated_data.get('unit_price', updated_product.unit_price)
-        updated_product.on_stock = serializer.validated_data.get('on_stock', updated_product.on_stock)
-        updated_product.is_available = serializer.validated_data.get('is_available', updated_product.is_available)
+        fields_to_update = ['title', 'description', 'unit_price', 'on_stock', 'is_available']
+        for field in fields_to_update:
+            setattr(updated_product, field, serializer.validated_data.get(field, getattr(updated_product, field)))
 
         if 'promotions' in serializer.validated_data:
             updated_product.promotions.set(serializer.validated_data['promotions'])
