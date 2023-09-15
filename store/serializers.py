@@ -1,29 +1,29 @@
 from rest_framework import serializers
-from .models import Category, Product
+from .models import Category, Product, Promotion
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField()
+class CategoryInputSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['title', 'description']
+
+
+class CategoryOutputSerializer(serializers.ModelSerializer):
     products_count = serializers.ReadOnlyField()
+    id = serializers.ReadOnlyField()
 
     class Meta:
         model = Category
         fields = ['id', 'title', 'description', 'products_count']
 
 
-class UpdateDeleteCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['title', 'description']
-
-
-class ProductSerializer(serializers.ModelSerializer):
+class ProductInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'title', 'description', 'unit_price', 'is_available', 'on_stock', 'category', 'promotion']
+        fields = ['title', 'categories', 'description', 'unit_price', 'on_stock', 'is_available', 'promotions']
 
 
-class UpdateDeleteProductSerializer(serializers.ModelSerializer):
+class ProductOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['title', 'description', 'unit_price', 'is_available', 'on_stock', 'category', 'promotion']
+        fields = ['id', 'title', 'categories', 'description', 'unit_price', 'on_stock', 'is_available', 'promotions']

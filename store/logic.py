@@ -14,7 +14,7 @@ def get_category_details(category_id):
 
 
 def get_list_products():
-    products = Product.objects.all()
+    products = Product.objects.prefetch_related('promotions')
     return products
 
 

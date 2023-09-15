@@ -24,12 +24,12 @@ class Address(models.Model):
 
 class Product(models.Model):
     title = models.CharField(max_length=200, blank=False)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
+    categories = models.ManyToManyField(Category, related_name='products')
     description = models.CharField(max_length=200, blank=False)
     unit_price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     on_stock = models.PositiveIntegerField(default=0)
     is_available = models.BooleanField(default=True, blank=False)
-    promotion = models.ManyToManyField(Promotion, blank=True)
+    promotions = models.ManyToManyField(Promotion, blank=True)
 
 
 class Cart(models.Model):

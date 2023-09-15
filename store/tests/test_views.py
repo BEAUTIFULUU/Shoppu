@@ -1,9 +1,11 @@
 import pytest
+import decimal
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.core import serializers
 from rest_framework import status
 from rest_framework.test import APIClient
-from store.models import Category
+from store.models import Category, Product
 
 User = get_user_model()
 
@@ -12,6 +14,17 @@ User = get_user_model()
 def create_category():
     category_obj = Category.objects.create(title='123', description='123')
     return category_obj
+
+
+@pytest.fixture
+def create_product(create_category):
+    category = create_category
+
+    product_obj = Product.objects.create(
+        title='123', description='123', unit_price=123, is_available=True, on_stock=123)
+
+    product_obj.categories.add(category)
+    return product_obj
 
 
 def create_authenticated_user(username, password):
@@ -30,7 +43,7 @@ def create_admin_user(username, password, email):
 
 
 @pytest.mark.django_db
-class TestCategoryViewsPermissions:
+class TestCategoryViewPermissions:
     def test_category_view_return_categories_for_anonymous_user(self, create_category):
         client = APIClient()
         url_pattern = 'get_create_category'
@@ -71,7 +84,7 @@ class TestCategoryViewsPermissions:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Category.objects.count() == 0
 
-    def test_category_view_return_categories_for_admin_user(self, create_category):
+    def test_category_view_return_categories_for_admin_user_return_200(self, create_category):
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         url_pattern = 'get_create_category'
         response = client.get(reverse(url_pattern))
@@ -79,7 +92,7 @@ class TestCategoryViewsPermissions:
         assert response.status_code == status.HTTP_200_OK
         assert Category.objects.count() == 1
 
-    def test_category_view_create_category_for_admin_user(self):
+    def test_category_view_create_category_for_admin_user_return_201(self):
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         url_pattern = 'get_create_category'
         data = {
@@ -107,7 +120,7 @@ class TestCategoryDetailViewPermission:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Category.objects.count() == 1
 
-    def test_id_anonymous_user_delete_category_return_403(self, create_category):
+    def test_if_anonymous_user_delete_category_return_403(self, create_category):
         category_obj = create_category
         client = APIClient()
         url_pattern = 'update_delete_category'
@@ -217,5 +230,165 @@ class TestCategoryDetailViewInvalidData:
         assert Category.objects.count() == 1
 
 
+@pytest.mark.django_db
+class TestProductViewPermissions:
+    def test_product_view_return_products_for_anonymous_user(self, create_product):
+        client = APIClient()
+        url_pattern = 'get_create_product'
+        response = client.get(reverse(url_pattern))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert Product.objects.count() == 1
+
+    def test_if_anonymous_user_create_product_return_403(self, create_category):
+        category_obj = create_category
+        client = APIClient()
+        url_pattern = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [category_obj.id],
+            'unit_price': 123,
+            'on_stock': 123,
+            'is_available': True
+        }
+
+        response = client.post(reverse(url_pattern), data=data, format='json')
+        assert Product.objects.count() == 0
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_product_view_return_products_for_authenticated_user(self, create_product):
+        user, client = create_authenticated_user(username='123', password='123')
+        url_pattern = 'get_create_product'
+        response = client.get(reverse(url_pattern))
+
+        assert Product.objects.count() == 1
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_authenticated_user_create_product_return_403(self, create_category):
+        category_obj = create_category
+        user, client = create_authenticated_user(username='123', password='123')
+        url_pattern = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [category_obj.id],
+            'unit_price': 123,
+            'on_stock': 123,
+            'is_available': True
+        }
+
+        response = client.post(reverse(url_pattern), data=data, format='json')
+        assert Product.objects.count() == 0
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_product_view_return_products_for_admin_user(self, create_product):
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url_pattern = 'get_create_product'
+        response = client.get(reverse(url_pattern))
+
+        assert Product.objects.count() == 1
+        assert response.status_code == status.HTTP_200_OK
+
+    @pytest.mark.django_db
+    def test_admin_user_create_product_return_201(self, create_category):
+        user, client = create_admin_user(username='admin', password='admin', email='admin@example.com')
+        category_obj = create_category
+
+        url_pattern = 'get_create_product'
+
+        data = {
+            'title': 'New Product',
+            'description': 'Product description',
+            'categories': [category_obj.id],
+            'unit_price': 123,
+            'on_stock': 123,
+            'is_available': True
+        }
+
+        response = client.post(reverse(url_pattern), data=data, format='json')
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        assert Product.objects.count() == 1
 
 
+@pytest.mark.django_db
+class TestProductDetailViewPermissions:
+    def test_if_anonymous_user_update_product_return_403(self, create_product, create_category):
+        product_obj = create_product
+        category_obj = create_category
+        client = APIClient()
+        url_pattern = 'update_delete_product'
+        data = {
+            'title': '321',
+            'description': '321',
+            'categories': [category_obj.id],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False
+        }
+
+        response = client.put(reverse(url_pattern, kwargs={'product_id': product_obj.id}), data=data, format='json')
+        assert Product.objects.count() == 1
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        updated_product = Product.objects.get(id=product_obj.id)
+        assert updated_product == product_obj
+
+    def test_if_anonymous_user_delete_product_return_403(self, create_product):
+        product_obj = create_product
+        client = APIClient()
+        url_pattern = 'update_delete_product'
+        response = client.delete(reverse(url_pattern, kwargs={'product_id': product_obj.id}))
+
+        assert Product.objects.count() == 1
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_if_authenticated_user_update_product_return_403(self, create_product, create_category):
+        product_obj = create_product
+        category_obj = create_category
+        user, client = create_authenticated_user(username='123', password='123')
+        url_pattern = 'update_delete_product'
+        data = {
+            'title': '321',
+            'description': '321',
+            'categories': [category_obj.id],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False
+        }
+
+        response = client.put(reverse(url_pattern, kwargs={'product_id': product_obj.id}), data=data, format='json')
+        assert Product.objects.count() == 1
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        updated_product = Product.objects.get(id=product_obj.id)
+        assert updated_product == product_obj
+
+    def test_if_authenticated_user_delete_product_return_403(self, create_product):
+        product_obj = create_product
+        user, client = create_authenticated_user(username='123', password='123')
+        url_pattern = 'update_delete_product'
+        response = client.delete(reverse(url_pattern, kwargs={'product_id': product_obj.id}))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Product.objects.count() == 1
+
+    def test_if_admin_user_update_product_return_200(self, create_product, create_category):
+        product_obj = create_product
+        category_obj = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url_pattern = 'update_delete_product'
+        data = {
+            'title': '321',
+            'description': '321',
+            'categories': [category_obj.id],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False
+        }
+
+        response = client.put(reverse(url_pattern, kwargs={'product_id': product_obj.id}), data=data, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert Product.objects.count() == 1
+        updated_product = Product.objects.get(id=product_obj.id)
+        assert updated_product == product_obj
