@@ -292,14 +292,14 @@ class TestProductViewPermissions:
 
     @pytest.mark.django_db
     def test_admin_user_create_product_return_201(self, create_category):
-        user, client = create_admin_user(username='admin', password='admin', email='admin@example.com')
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         category_obj = create_category
 
         url_pattern = 'get_create_product'
 
         data = {
-            'title': 'New Product',
-            'description': 'Product description',
+            'title': '123',
+            'description': '123',
             'categories': [category_obj.id],
             'unit_price': 123,
             'on_stock': 123,

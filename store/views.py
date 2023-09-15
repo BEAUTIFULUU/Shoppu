@@ -18,6 +18,8 @@ class CategoryView(generics.ListCreateAPIView):
             return CategoryOutputSerializer
         elif self.request.method == 'POST':
             return CategoryInputSerializer
+        else:
+            return CategoryOutputSerializer
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -33,8 +35,6 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
             return CategoryOutputSerializer
         elif self.request.method == 'PUT':
             return CategoryInputSerializer
-        else:
-            return CategoryOutputSerializer
 
     def update(self, request, *args, **kwargs):
         update_category = self.get_object()

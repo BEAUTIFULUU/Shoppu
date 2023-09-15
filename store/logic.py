@@ -14,10 +14,10 @@ def get_category_details(category_id):
 
 
 def get_list_products():
-    products = Product.objects.prefetch_related('promotions')
+    products = Product.objects.prefetch_related('categories', 'promotions')
     return products
 
 
 def get_product_details(product_id):
-    product_obj = Product.objects.filter(id=product_id)
+    product_obj = Product.objects.filter(id=product_id).prefetch_related('categories', 'promotions')
     return get_object_or_404(product_obj)
