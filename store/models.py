@@ -1,11 +1,16 @@
 import uuid
+
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth.models import User
 
 
 class Promotion(models.Model):
-    description = models.CharField(max_length=255, blank=False)
-    discount = models.FloatField(blank=False)
+    title = models.CharField(max_length=100, blank=False)
+    description = models.TextField(max_length=150, blank=True)
+    start_date = models.DateField(blank=True)
+    end_date = models.DateField(blank=True)
+    discount_percentage = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)], blank=False)
 
 
 class Category(models.Model):
@@ -29,7 +34,7 @@ class Product(models.Model):
     unit_price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     on_stock = models.PositiveIntegerField(default=0)
     is_available = models.BooleanField(default=True, blank=False)
-    promotions = models.ManyToManyField(Promotion, blank=True)
+    promotions = models.ManyToManyField(Promotion, related_name='products', blank=True)
 
 
 class Cart(models.Model):

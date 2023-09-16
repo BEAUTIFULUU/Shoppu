@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q
-from .models import Category, Product
+from .models import Category, Product, Promotion
 
 
 def get_list_categories():
@@ -21,3 +21,13 @@ def get_list_products():
 def get_product_details(product_id):
     product_obj = Product.objects.filter(id=product_id).prefetch_related('categories', 'promotions')
     return get_object_or_404(product_obj)
+
+
+def get_list_promotions():
+    promotions = Promotion.objects.all()
+    return promotions
+
+
+def get_promotion_details(promotion_id):
+    promotion_obj = Promotion.objects.filter(id=promotion_id)
+    return get_object_or_404(promotion_obj)

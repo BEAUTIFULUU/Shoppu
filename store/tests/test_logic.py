@@ -2,8 +2,9 @@ import pytest
 import uuid
 from django.contrib.auth import get_user_model
 from django.http import Http404
-from store.models import Category, Product
-from store.logic import get_list_categories, get_category_details, get_list_products, get_product_details
+from store.models import Category, Product, Promotion
+from store.logic import get_list_categories, get_category_details, get_list_products, get_product_details, \
+    get_list_promotions, get_promotion_details
 from rest_framework.test import APIClient
 
 User = get_user_model()
@@ -29,6 +30,17 @@ def create_product(create_category):
     return product_obj
 
 
+@pytest.fixture
+def create_promotion():
+    promotion_obj = Promotion.objects.create(
+        title='123',
+        start_date='2023-09-16',
+        end_date='2023-09-18',
+        discount_percentage=15
+    )
+    return promotion_obj
+
+
 def create_authenticated_user(username, password):
     user = User.objects.create_user(username=username, password=password)
     client = APIClient()
@@ -50,8 +62,7 @@ class TestCategoryLogic:
         categories = get_list_categories()
 
         assert len(categories) == 1
-        for category in categories:
-            assert category == category_obj
+        assert category_obj in categories
 
     def test_get_category_details(self, create_category):
         category_obj = create_category
@@ -91,3 +102,27 @@ class TestProductLogic:
     def test_get_product_details_missing_data(self):
         with pytest.raises(Http404):
             get_product_details(product_id=None)
+
+
+@pytest.mark.django_db
+class TestPromotionLogic:
+    def test_get_list_promotions(self, create_promotion):
+        promotion_obj = create_promotion
+        promotions = get_list_promotions()
+
+        assert len(promotions) == 1
+        assert promotion_obj in promotions
+
+    def test_get_promotion_details(self, create_promotion):
+        promotion_obj = create_promotion
+        promotion_details = get_promotion_details(promotion_id=promotion_obj.id)
+
+        assert promotion_details == promotion_obj
+
+    def test_get_promotion_details_invalid_data(self, create_promotion):
+        with pytest.raises(Http404):
+            get_promotion_details(promotion_id=99999)
+
+    def test_get_promotion_details_missing_data(self, create_promotion):
+        with pytest.raises(Http404):
+            get_promotion_details(promotion_id=None)
