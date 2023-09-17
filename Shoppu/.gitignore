@@ -1,0 +1,16 @@
+*.env
+
+db.sqlite3
+
+*.pyc
+
+docker-compose.yml
+Dockerfile
+
+*.log
+
+static/
+
+media/
+
+
