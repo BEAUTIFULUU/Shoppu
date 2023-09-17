@@ -17,6 +17,13 @@ class CategoryView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         return CategoryInputSerializer if self.request.method == 'POST' else CategoryOutputSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category_obj = serializer.save()
+        output_serializer = CategoryOutputSerializer(category_obj)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
@@ -52,6 +59,13 @@ class ProductView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         return ProductInputSerializer if self.request.method == 'POST' else ProductOutputSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_obj = serializer.save()
+        output_serializer = ProductOutputSerializer(product_obj)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -94,6 +108,13 @@ class PromotionView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         return PromotionInputSerializer if self.request.method == 'POST' else PromotionOutputSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        promotion_obj = serializer.save()
+        output_serializer = PromotionOutputSerializer(promotion_obj)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
