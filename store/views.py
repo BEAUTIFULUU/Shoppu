@@ -2,7 +2,9 @@ from rest_framework.response import Response
 from rest_framework import status, generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
 from .logic import get_list_categories, get_category_details, get_list_products, get_product_details, \
-    get_list_promotions, get_promotion_details
+    get_list_promotions, get_promotion_details, update_product_categories, update_product_promotions, \
+    create_product_categories, create_product_promotions
+from .models import Category, Promotion, Product
 from .serializers import CategoryInputSerializer, CategoryOutputSerializer, ProductInputSerializer, \
     ProductOutputSerializer, PromotionInputSerializer, PromotionOutputSerializer
 from .permissions import IsAdminOrReadOnly
@@ -20,7 +22,9 @@ class CategoryView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        category_obj = serializer.save()
+        category_obj = Category(**serializer.validated_data)
+        category_obj.save()
+
         output_serializer = CategoryOutputSerializer(category_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -37,17 +41,17 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         return get_category_details(category_id=category_id)
 
     def update(self, request, *args, **kwargs):
-        update_category = self.get_object()
+        category_obj = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         fields_to_update = ['title', 'description']
         for field in fields_to_update:
-            setattr(update_category, field, serializer.validated_data.get(field, getattr(update_category, field)))
+            setattr(category_obj, field, serializer.validated_data.get(field, getattr(category_obj, field)))
 
-        update_category.save()
+        category_obj.save()
 
-        output_serializer = CategoryOutputSerializer(update_category)
+        output_serializer = CategoryOutputSerializer(category_obj)
         return Response(output_serializer.data)
 
 
@@ -63,7 +67,15 @@ class ProductView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        product_obj = serializer.save()
+        categories = serializer.validated_data.pop('categories', [])
+        promotions = serializer.validated_data.pop('promotions', [])
+
+        product_obj = Product(**serializer.validated_data)
+        product_obj.save()
+
+        create_product_categories(product_obj=product_obj, categories=categories)
+        create_product_promotions(product_obj=product_obj, promotions=promotions)
+
         output_serializer = ProductOutputSerializer(product_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -80,23 +92,22 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         return get_product_details(product_id=product_id)
 
     def update(self, request, *args, **kwargs):
-        update_product = self.get_object()
-        serializer = self.get_serializer(update_product, data=request.data)
+        product_obj = self.get_object()
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        categories = serializer.validated_data.pop('categories', [])
+        promotions = serializer.validated_data.pop('promotions', [])
 
         fields_to_update = ['title', 'description', 'unit_price', 'on_stock', 'is_available']
         for field in fields_to_update:
-            setattr(update_product, field, serializer.validated_data.get(field, getattr(update_product, field)))
+            setattr(product_obj, field, serializer.validated_data.get(field, getattr(product_obj, field)))
 
-        if 'categories' in serializer.validated_data:
-            update_product.categories.set(serializer.validated_data['categories'])
+        product_obj.save()
 
-        if 'promotions' in serializer.validated_data:
-            update_product.promotions.set(serializer.validated_data['promotions'])
+        update_product_categories(product_obj=product_obj, category_ids=categories)
+        update_product_promotions(product_obj=product_obj, promotion_ids=promotions)
 
-        update_product.save()
-
-        output_serializer = ProductOutputSerializer(update_product)
+        output_serializer = ProductOutputSerializer(product_obj)
         return Response(output_serializer.data)
 
 
@@ -112,7 +123,9 @@ class PromotionView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        promotion_obj = serializer.save()
+        promotion_data = serializer.validated_data
+        promotion_obj = Promotion(**promotion_data)
+        promotion_obj.save()
         output_serializer = PromotionOutputSerializer(promotion_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -130,15 +143,15 @@ class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
         return get_promotion_details(promotion_id=promotion_id)
 
     def update(self, request, *args, **kwargs):
-        update_promotion = self.get_object()
-        serializer = self.get_serializer(update_promotion, data=request.data)
+        promotion_obj = self.get_object()
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         fields_to_update = ['title', 'description', 'start_date', 'end_date', 'discount_percentage']
         for field in fields_to_update:
-            setattr(update_promotion, field, serializer.validated_data.get(field, getattr(update_promotion, field)))
+            setattr(promotion_obj, field, serializer.validated_data.get(field, getattr(promotion_obj, field)))
 
-        update_promotion.save()
+        promotion_obj.save()
 
-        output_serializer = PromotionOutputSerializer(update_promotion)
+        output_serializer = PromotionOutputSerializer(promotion_obj)
         return Response(output_serializer.data)

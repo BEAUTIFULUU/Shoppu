@@ -31,3 +31,27 @@ def get_list_promotions():
 def get_promotion_details(promotion_id):
     promotion_obj = Promotion.objects.filter(id=promotion_id)
     return get_object_or_404(promotion_obj)
+
+
+def update_product_categories(product_obj, category_ids):
+    product_obj.categories.set(category_ids)
+    product_obj.save()
+    return product_obj
+
+
+def update_product_promotions(product_obj, promotion_ids):
+    product_obj.promotions.set(promotion_ids)
+    product_obj.save()
+    return product_obj
+
+
+def create_product_categories(product_obj, categories):
+    product_obj.categories.set(categories)
+    product_obj.save()
+    return product_obj
+
+
+def create_product_promotions(product_obj, promotions):
+    product_obj.promotions.set(promotions)
+    product_obj.save()
+    return product_obj

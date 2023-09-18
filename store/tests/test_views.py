@@ -31,6 +31,7 @@ def create_product(create_category):
 def create_promotion():
     promotion_obj = Promotion.objects.create(
         title='123',
+        description='123',
         start_date='2023-09-16',
         end_date='2023-09-18',
         discount_percentage=15
@@ -174,6 +175,9 @@ class TestCategoryDetailViewPermission:
 
         assert response.status_code == status.HTTP_200_OK
         assert Category.objects.count() == 1
+        updated_category = Category.objects.get(id=category_obj.id)
+        assert updated_category.title == '1234'
+        assert updated_category.description == '1234'
 
     def test_if_admin_user_delete_category_return_204(self, create_category):
         category_obj = create_category
@@ -381,9 +385,10 @@ class TestProductDetailViewPermissions:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Product.objects.count() == 1
 
-    def test_if_admin_user_update_product_return_200(self, create_product, create_category):
+    def test_if_admin_user_update_product_return_200(self, create_product, create_category, create_promotion):
         product_obj = create_product
         category_obj = create_category
+        promotion_obj = create_promotion
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         url = 'update_delete_product'
         data = {
@@ -392,7 +397,8 @@ class TestProductDetailViewPermissions:
             'categories': [category_obj.id],
             'unit_price': 321,
             'on_stock': 0,
-            'is_available': False
+            'is_available': False,
+            'promotions': [promotion_obj.id]
         }
 
         response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
@@ -405,6 +411,7 @@ class TestProductDetailViewPermissions:
         assert updated_product.unit_price == 321
         assert updated_product.on_stock == 0
         assert updated_product.is_available is False
+        assert list(updated_product.promotions.all()) == [promotion_obj]
 
     def test_if_admin_user_delete_product_return_204(self, create_product):
         product_obj = create_product
