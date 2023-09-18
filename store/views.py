@@ -22,8 +22,7 @@ class CategoryView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        category_obj = Category(**serializer.validated_data)
-        category_obj.save()
+        category_obj = Category.objects.create(**serializer.validated_data)
 
         output_serializer = CategoryOutputSerializer(category_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -70,8 +69,7 @@ class ProductView(generics.ListCreateAPIView):
         categories = serializer.validated_data.pop('categories', [])
         promotions = serializer.validated_data.pop('promotions', [])
 
-        product_obj = Product(**serializer.validated_data)
-        product_obj.save()
+        product_obj = Product.objects.create(**serializer.validated_data)
 
         create_product_categories(product_obj=product_obj, categories=categories)
         create_product_promotions(product_obj=product_obj, promotions=promotions)
@@ -123,9 +121,7 @@ class PromotionView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        promotion_data = serializer.validated_data
-        promotion_obj = Promotion(**promotion_data)
-        promotion_obj.save()
+        promotion_obj = Promotion.objects.create(**serializer.validated_data)
         output_serializer = PromotionOutputSerializer(promotion_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
