@@ -37,7 +37,7 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
     lookup_field = 'category_id'
 
-    def get_serializer_class(self) -> Type[CategoryInputSerializer | CategoryOutputSerializer]:
+    def get_serializer_class(self) -> Type[CategoryInputSerializer] | Type[CategoryOutputSerializer]:
         return CategoryInputSerializer if self.request.method == 'PUT' else CategoryOutputSerializer
 
     def get_object(self) -> Category:
