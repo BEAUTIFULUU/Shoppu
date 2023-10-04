@@ -39,14 +39,15 @@ class Product(models.Model):
 
 class Cart(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts', blank=False)
-    products = models.ManyToManyField(Product, through='CartItem')
+    products = models.ManyToManyField(Product, related_name='carts', through='CartItem')
+    is_completed = models.BooleanField(default=False, blank=False)
 
 
 class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, related_name='cart_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cart_items')
     quantity = models.PositiveSmallIntegerField(blank=False)
 
 

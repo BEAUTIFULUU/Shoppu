@@ -1,12 +1,19 @@
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import Http404
 from rest_framework.response import Response
-from rest_framework import status, generics, permissions
+from rest_framework import status, generics, permissions, viewsets, mixins, views
+from rest_framework.exceptions import MethodNotAllowed
 from django_filters.rest_framework import DjangoFilterBackend
 from .logic import get_list_categories, get_category_details, get_list_products, get_product_details, \
-    get_list_promotions, get_promotion_details, update_product_categories, update_product_promotions, \
-    create_product_categories, create_product_promotions
-from .models import Category, Promotion, Product
+    get_list_promotions, get_promotion_details, create_update_product_categories, create_update_product_promotions, \
+    pop_categories_from_product_data, pop_promotions_from_product_data, \
+    get_cart_details, get_or_create_user_cart, get_user_cart_history, get_product, create_update_delete_cart_item, \
+    get_cart_item
+
+from .models import Category, Promotion, Product, CartItem, Cart
 from .serializers import CategoryInputSerializer, CategoryOutputSerializer, ProductInputSerializer, \
-    ProductOutputSerializer, PromotionInputSerializer, PromotionOutputSerializer
+    ProductOutputSerializer, PromotionInputSerializer, PromotionOutputSerializer, CartHistoryOutputSerializer, \
+    CartItemInputSerializer, CartDetailsOutputSerializer, CartItemOutputSerializer
 from .permissions import IsAdminOrReadOnly
 
 
@@ -66,13 +73,13 @@ class ProductView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        categories = serializer.validated_data.pop('categories', [])
-        promotions = serializer.validated_data.pop('promotions', [])
+        categories = pop_categories_from_product_data(serializer=serializer)
+        promotions = pop_promotions_from_product_data(serializer=serializer)
 
         product_obj = Product.objects.create(**serializer.validated_data)
 
-        create_product_categories(product_obj=product_obj, categories=categories)
-        create_product_promotions(product_obj=product_obj, promotions=promotions)
+        create_update_product_categories(product_obj=product_obj, categories=categories)
+        create_update_product_promotions(product_obj=product_obj, promotions=promotions)
 
         output_serializer = ProductOutputSerializer(product_obj)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -93,8 +100,8 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         product_obj = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        categories = serializer.validated_data.pop('categories', [])
-        promotions = serializer.validated_data.pop('promotions', [])
+        categories = pop_categories_from_product_data(serializer=serializer)
+        promotions = pop_promotions_from_product_data(serializer=serializer)
 
         fields_to_update = ['title', 'description', 'unit_price', 'on_stock', 'is_available']
         for field in fields_to_update:
@@ -102,8 +109,8 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         product_obj.save()
 
-        update_product_categories(product_obj=product_obj, category_ids=categories)
-        update_product_promotions(product_obj=product_obj, promotion_ids=promotions)
+        create_update_product_categories(product_obj=product_obj, categories=categories)
+        create_update_product_promotions(product_obj=product_obj, promotions=promotions)
 
         output_serializer = ProductOutputSerializer(product_obj)
         return Response(output_serializer.data)
@@ -128,7 +135,6 @@ class PromotionView(generics.ListCreateAPIView):
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
-    filter_backends = [DjangoFilterBackend]
     lookup_field = 'promotion_id'
 
     def get_serializer_class(self):
@@ -151,3 +157,40 @@ class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         output_serializer = PromotionOutputSerializer(promotion_obj)
         return Response(output_serializer.data)
+
+
+class CartHistoryView(generics.ListAPIView):
+    serializer_class = CartHistoryOutputSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'cart_id'
+
+    def get_queryset(self):
+        user = self.request.user
+        get_or_create_user_cart(user=user)
+        carts = get_user_cart_history(user=user)
+        all_carts = list(carts)
+        return all_carts
+
+
+class CartView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cart_details = get_cart_details(user=request.user)
+        serializer = CartDetailsOutputSerializer(cart_details)
+        return Response(serializer.data)
+
+    def put(self, request):
+        serializer = CartItemInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_id = serializer.validated_data['product']
+        quantity = serializer.validated_data['quantity']
+        cart_obj = get_cart_details(user=request.user)
+        product_obj = get_product(product_id=product_id.id)
+        cart_item_obj = get_cart_item(cart_obj=cart_obj, product_id=product_id)
+
+        return create_update_delete_cart_item(
+            product_obj=product_obj, quantity=quantity, cart_item_obj=cart_item_obj, product_id=product_id, cart_obj=cart_obj)
+
+
+

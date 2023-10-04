@@ -1,6 +1,8 @@
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.contrib.auth.models import User
+from django.db.models import Sum
 from rest_framework import serializers
-from .models import Category, Product, Promotion
+from .models import Category, Product, Promotion, Cart, CartItem
 from decimal import Decimal
 
 
@@ -31,9 +33,16 @@ class ProductInputSerializer(serializers.Serializer):
         queryset=Promotion.objects.all(), many=True, required=False
     )
 
+    def validate_categories(self, value):
+        if len(value) < 1:
+            raise serializers.ValidationError("At least one category is required.")
+        return value
+
 
 class ProductOutputSerializer(serializers.ModelSerializer):
     discount_price = serializers.SerializerMethodField()
+    categories = serializers.SerializerMethodField()
+    promotions = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -56,10 +65,8 @@ class ProductOutputSerializer(serializers.ModelSerializer):
         else:
             return float(obj.unit_price)
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['categories'] = self.get_categories(instance)
-        return data
+    def get_promotions(self, obj):
+        return [promotion.title for promotion in obj.promotions.all()]
 
 
 class PromotionInputSerializer(serializers.Serializer):
@@ -77,3 +84,47 @@ class PromotionOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Promotion
         fields = ['id', 'title', 'description', 'start_date', 'end_date', 'discount_percentage']
+
+
+class CartHistoryOutputSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cart
+        fields = ['id', 'created_at', 'is_completed']
+
+
+class CartItemInputSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=True)
+    quantity = serializers.IntegerField(required=True, validators=[MinValueValidator(0)])
+
+
+class CartItemOutputSerializer(serializers.ModelSerializer):
+    product_id = serializers.ReadOnlyField(source='product.id')
+    product_title = serializers.ReadOnlyField(source='product.title')
+    product_unit_price = serializers.ReadOnlyField(source='product.unit_price')
+    product_promotions = serializers.SerializerMethodField()
+    quantity = serializers.ReadOnlyField()
+    total_price = serializers.SerializerMethodField(read_only=True)
+
+    def get_total_price(self, obj):
+        if obj.product.promotions.exists():
+            max_discount = max(promotion.discount_percentage for promotion in obj.product.promotions.all())
+            discount_multiplier = 1 - (Decimal(max_discount / 100))
+            total_price_with_discount = obj.product.unit_price * discount_multiplier
+            return round(float(total_price_with_discount * obj.quantity), 2)
+        else:
+            return round(float(obj.product.unit_price * obj.quantity), 2)
+
+    def get_product_promotions(self, obj):
+        return [promotion.title for promotion in obj.product.promotions.all()]
+
+    class Meta:
+        model = CartItem
+        fields = ['product_id', 'product_title', 'product_unit_price', 'product_promotions', 'quantity', 'total_price']
+
+
+class CartDetailsOutputSerializer(serializers.ModelSerializer):
+    cart_items = CartItemOutputSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'created_at', 'cart_items']

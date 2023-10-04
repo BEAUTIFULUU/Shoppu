@@ -12,8 +12,8 @@ User = get_user_model()
 
 @pytest.fixture
 def create_category():
-    category_obj = Category.objects.create(title='123', description='123')
-    return category_obj
+    categories = Category.objects.create(title='123', description='123')
+    return categories
 
 
 @pytest.fixture
@@ -29,14 +29,14 @@ def create_product(create_category):
 
 @pytest.fixture
 def create_promotion():
-    promotion_obj = Promotion.objects.create(
+    promotions = Promotion.objects.create(
         title='123',
         description='123',
         start_date='2023-09-16',
         end_date='2023-09-18',
         discount_percentage=15
     )
-    return promotion_obj
+    return promotions
 
 
 def create_authenticated_user(username, password):
@@ -176,8 +176,8 @@ class TestCategoryDetailViewPermission:
         assert response.status_code == status.HTTP_200_OK
         assert Category.objects.count() == 1
         updated_category = Category.objects.get(id=category_obj.id)
-        assert updated_category.title == '1234'
-        assert updated_category.description == '1234'
+        assert updated_category.title == data['title']
+        assert updated_category.description == data['description']
 
     def test_if_admin_user_delete_category_return_204(self, create_category):
         category_obj = create_category
@@ -230,6 +230,8 @@ class TestCategoryDetailViewInvalidData:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert Category.objects.count() == 1
+        categories_after_request = Category.objects.get(id=category_obj.id)
+        assert categories_after_request == category_obj
 
     def test_update_category_with_no_description_return_400(self, create_category):
         category_obj = create_category
@@ -243,6 +245,8 @@ class TestCategoryDetailViewInvalidData:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert Category.objects.count() == 1
+        category_after_request = Category.objects.get(id=category_obj.id)
+        assert category_after_request == category_obj
 
 
 @pytest.mark.django_db
@@ -256,13 +260,13 @@ class TestProductViewPermissions:
         assert Product.objects.count() == 1
 
     def test_if_anonymous_user_create_product_return_403(self, create_category):
-        category_obj = create_category
+        categories = create_category
         client = APIClient()
         url = 'get_create_product'
         data = {
             'title': '123',
             'description': '123',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 123,
             'on_stock': 123,
             'is_available': True
@@ -281,13 +285,13 @@ class TestProductViewPermissions:
         assert response.status_code == status.HTTP_200_OK
 
     def test_authenticated_user_create_product_return_403(self, create_category):
-        category_obj = create_category
+        categories = create_category
         user, client = create_authenticated_user(username='123', password='123')
         url = 'get_create_product'
         data = {
             'title': '123',
             'description': '123',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 123,
             'on_stock': 123,
             'is_available': True
@@ -307,14 +311,14 @@ class TestProductViewPermissions:
 
     def test_admin_user_create_product_return_201(self, create_category):
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
-        category_obj = create_category
+        categories = create_category
 
         url = 'get_create_product'
 
         data = {
             'title': '123',
             'description': '123',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 123,
             'on_stock': 123,
             'is_available': True
@@ -329,13 +333,13 @@ class TestProductViewPermissions:
 class TestProductDetailViewPermissions:
     def test_if_anonymous_user_update_product_return_403(self, create_product, create_category):
         product_obj = create_product
-        category_obj = create_category
+        categories = create_category
         client = APIClient()
         url = 'update_delete_product'
         data = {
             'title': '321',
             'description': '321',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 321,
             'on_stock': 0,
             'is_available': False
@@ -358,13 +362,13 @@ class TestProductDetailViewPermissions:
 
     def test_if_authenticated_user_update_product_return_403(self, create_product, create_category):
         product_obj = create_product
-        category_obj = create_category
+        categories = create_category
         user, client = create_authenticated_user(username='123', password='123')
         url = 'update_delete_product'
         data = {
             'title': '321',
             'description': '321',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 321,
             'on_stock': 0,
             'is_available': False
@@ -387,31 +391,28 @@ class TestProductDetailViewPermissions:
 
     def test_if_admin_user_update_product_return_200(self, create_product, create_category, create_promotion):
         product_obj = create_product
-        category_obj = create_category
-        promotion_obj = create_promotion
+        categories = create_category
+        promotions = create_promotion
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         url = 'update_delete_product'
         data = {
             'title': '321',
             'description': '321',
-            'categories': [category_obj.id],
+            'categories': [categories.id],
             'unit_price': 321,
             'on_stock': 0,
             'is_available': False,
-            'promotions': [promotion_obj.id]
+            'promotions': [promotions.id]
         }
 
         response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
         assert response.status_code == status.HTTP_200_OK
         assert Product.objects.count() == 1
         updated_product = Product.objects.get(id=product_obj.id)
-        assert updated_product.title == '321'
-        assert updated_product.description == '321'
-        assert list(updated_product.categories.all()) == [category_obj]
-        assert updated_product.unit_price == 321
-        assert updated_product.on_stock == 0
-        assert updated_product.is_available is False
-        assert list(updated_product.promotions.all()) == [promotion_obj]
+        for field in ['title', 'description', 'unit_price', 'on_stock', 'is_available']:
+            assert getattr(updated_product, field) == data[field]
+        assert list(updated_product.categories.all()) == [categories]
+        assert list(updated_product.promotions.all()) == [promotions]
 
     def test_if_admin_user_delete_product_return_204(self, create_product):
         product_obj = create_product
@@ -421,6 +422,244 @@ class TestProductDetailViewPermissions:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Product.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestProductViewInvalidData:
+    def test_create_product_with_no_title_return_400(self, create_category):
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '',
+            'description': '321',
+            'categories': [categories.id],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+    def test_create_product_with_no_description_return_400(self, create_category):
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '',
+            'categories': [categories.id],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+    def test_create_product_with_no_categories_return_400(self):
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [],
+            'unit_price': 321,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+    def test_create_product_with_no_unit_price_return_400(self, create_category):
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': None,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+    def test_create_product_with_no_on_stock_return_400(self, create_category):
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': None,
+            'is_available': False,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+    def test_create_product_with_no_is_available_return_400(self, create_category):
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'get_create_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': 0,
+            'is_available': None,
+        }
+
+        response = client.post(reverse(url), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestProductDetailViewInvalidData:
+    def test_update_product_with_no_title_return_400(self, create_category, create_product):
+        product_obj = create_product
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
+
+    def test_update_product_with_no_description_return_400(self, create_category, create_product):
+        product_obj = create_product
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '123',
+            'description': '',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
+
+    def test_update_product_with_no_categories_return_400(self, create_product):
+        product_obj = create_product
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '123',
+            'description': '',
+            'categories': [],
+            'unit_price': 123,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
+
+    def test_update_product_with_no_unit_price_return_400(self, create_category, create_product):
+        product_obj = create_product
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': None,
+            'on_stock': 0,
+            'is_available': False,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
+
+    def test_update_product_with_no_on_stock_return_400(self, create_category, create_product):
+        product_obj = create_product
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': None,
+            'is_available': False,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
+
+    def test_update_product_with_no_is_available_return_400(self, create_category, create_product):
+        product_obj = create_product
+        categories = create_category
+        user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+        url = 'update_delete_product'
+        data = {
+            'title': '123',
+            'description': '123',
+            'categories': [categories.id],
+            'unit_price': 123,
+            'on_stock': 0,
+            'is_available': None,
+        }
+
+        response = client.put(reverse(url, kwargs={'product_id': product_obj.id}), data=data, format='json')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Product.objects.count() == 1
+        product_after_request = Product.objects.get(id=product_obj.id)
+        assert product_after_request == product_obj
 
 
 @pytest.mark.django_db
@@ -512,8 +751,8 @@ class TestPromotionDetailViewPermissions:
         response = client.put(reverse(url, kwargs={'promotion_id': promotion_obj.id}), data=data, format='json')
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Promotion.objects.count() == 1
-        updated_promotion = Promotion.objects.get(id=promotion_obj.id)
-        assert promotion_obj == updated_promotion
+        promotion_after_request = Promotion.objects.get(id=promotion_obj.id)
+        assert promotion_obj == promotion_after_request
 
     def test_if_anonymous_user_delete_promotion_return_403(self, create_promotion):
         promotion_obj = create_promotion
@@ -539,14 +778,14 @@ class TestPromotionDetailViewPermissions:
         response = client.put(reverse(url, kwargs={'promotion_id': promotion_obj.id}), data=data, format='json')
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Promotion.objects.count() == 1
-        updated_promotion = Promotion.objects.get(id=promotion_obj.id)
-        assert promotion_obj == updated_promotion
+        promotion_after_request = Promotion.objects.get(id=promotion_obj.id)
+        assert promotion_after_request == promotion_obj
 
     def test_if_authenticated_user_delete_promotion_return_403(self, create_promotion):
-        promotion_obj = create_promotion
+        promotions = create_promotion
         user, client = create_authenticated_user(username='123', password='123')
         url = 'update_delete_promotion'
-        response = client.delete(reverse(url, kwargs={'promotion_id': promotion_obj.id}))
+        response = client.delete(reverse(url, kwargs={'promotion_id': promotions.id}))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Promotion.objects.count() == 1
@@ -567,17 +806,16 @@ class TestPromotionDetailViewPermissions:
         assert response.status_code == status.HTTP_200_OK
         assert Promotion.objects.count() == 1
         updated_promotion = Promotion.objects.get(id=promotion_obj.id)
-        assert updated_promotion.title == '321'
-        assert updated_promotion.description == '321'
-        assert str(updated_promotion.start_date) == '2023-09-08'
-        assert str(updated_promotion.end_date) == '2023-09-11'
-        assert updated_promotion.discount_percentage == 10
+        for field in ['title', 'description', 'discount_percentage']:
+            assert getattr(updated_promotion, field) == data[field]
+        assert str(updated_promotion.start_date) == data['start_date']
+        assert str(updated_promotion.end_date) == data['end_date']
 
     def test_if_admin_user_delete_promotion_return_204(self, create_promotion):
-        promotion_obj = create_promotion
+        promotions = create_promotion
         user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
         url = 'update_delete_promotion'
-        response = client.delete(reverse(url, kwargs={'promotion_id': promotion_obj.id}))
+        response = client.delete(reverse(url, kwargs={'promotion_id': promotions.id}))
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Promotion.objects.count() == 0
@@ -655,4 +893,3 @@ class TestPromotionDetailViewInvalidData:
         assert Promotion.objects.count() == 1
         update_promotion = Promotion.objects.get(id=promotion_obj.id)
         assert promotion_obj == update_promotion
-
