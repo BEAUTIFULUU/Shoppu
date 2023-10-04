@@ -1,10 +1,7 @@
 import uuid
-
 import pytest
-import decimal
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.core import serializers
 from rest_framework import status
 from rest_framework.test import APIClient
 from store.models import Category, Product, Promotion, Cart, CartItem
@@ -1114,5 +1111,252 @@ class TestCartViewPermissions:
         assert response.status_code == status.HTTP_200_OK
 
 
+@pytest.mark.django_db
+class TestCartViewInvalidData:
+    def test_if_authenticated_user_create_cart_item_with_invalid_product_id_return_400(
+            self, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': 9999,
+            'quantity': 10
+        }
 
+        response = client.put(reverse(url), data=data, format='json')
 
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_missing_product_id_return_400(
+            self, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': None,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_negative_product_id_return_400(
+            self, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': -1,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_invalid_quantity_return_400(
+            self, create_not_completed_cart, create_product):
+        cart_obj, user = create_not_completed_cart
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 5001
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_negative_quantity_return_400(
+            self, create_not_completed_cart, create_product):
+        cart_obj, user = create_not_completed_cart
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': -1
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_no_quantity_return_400(
+            self, create_product, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': None
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_create_cart_item_with_wrong_quantity_return_400(
+            self, create_product, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 124
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_missing_product_id(
+            self, create_cart_item_fxt, create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': None,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_invalid_product_id_return_400(
+            self, create_cart_item_fxt, create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': 9999,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_negative_product_id_return_400(
+            self, create_cart_item_fxt, create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': -1,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_missing_quantity_return_400(
+            self, create_cart_item_fxt, create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': None
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_invalid_quantity_return_400(
+            self, create_cart_item_fxt, create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 9999
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_if_authenticated_user_update_cart_item_with_negative_quantity_return_400(
+            self, create_cart_item_fxt,create_product):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        initial_quantity = cart_item_obj.quantity
+        product_obj = create_product
+        initial_on_stock = product_obj.on_stock
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': -1
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert initial_quantity == updated_cart_item.quantity
+        assert initial_on_stock == product_obj.on_stock
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

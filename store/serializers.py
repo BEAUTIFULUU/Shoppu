@@ -24,7 +24,7 @@ class ProductInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, required=True)
     description = serializers.CharField(max_length=200, required=True)
     unit_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True)
-    on_stock = serializers.IntegerField(required=True)
+    on_stock = serializers.IntegerField(required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)])
     is_available = serializers.BooleanField(required=True)
     categories = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, required=True
@@ -94,7 +94,7 @@ class CartHistoryOutputSerializer(serializers.ModelSerializer):
 
 class CartItemInputSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=True)
-    quantity = serializers.IntegerField(required=True, validators=[MinValueValidator(0)])
+    quantity = serializers.IntegerField(required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)])
 
 
 class CartItemOutputSerializer(serializers.ModelSerializer):
