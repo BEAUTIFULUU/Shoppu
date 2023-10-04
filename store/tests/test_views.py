@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 import decimal
 from django.urls import reverse
@@ -5,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core import serializers
 from rest_framework import status
 from rest_framework.test import APIClient
-from store.models import Category, Product, Promotion
+from store.models import Category, Product, Promotion, Cart, CartItem
 
 User = get_user_model()
 
@@ -52,6 +54,46 @@ def create_admin_user(username, password, email):
     client = APIClient()
     client.login(username=username, password=password, email=email)
     return admin_user, client
+
+
+@pytest.fixture
+def create_not_completed_cart():
+    cart_id = uuid.uuid4()
+    user, client = create_authenticated_user(username='123', password='123')
+    cart_obj = Cart.objects.create(id=cart_id, created_at='30-09-2023', user=user, is_completed=False)
+    return cart_obj, user
+
+
+@pytest.fixture
+def create_not_completed_cart_with_admin_user():
+    cart_id = uuid.uuid4()
+    user, client = create_admin_user(username='123', password='123', email='123@gmail.com')
+    cart_obj = Cart.objects.create(id=cart_id, created_at='30-09-2023', user=user, is_completed=False)
+    return cart_obj, user
+
+
+@pytest.fixture
+def create_completed_cart():
+    cart_id = uuid.uuid4()
+    user, client = create_authenticated_user(username='123', password='123')
+    cart_obj = Cart.objects.create(id=cart_id, created_at='30-09-2023', user=user, is_completed=True)
+    return cart_obj, user
+
+
+@pytest.fixture
+def create_cart_item_fxt(create_not_completed_cart, create_product):
+    cart_obj, user = create_not_completed_cart
+    product_obj = create_product
+    cart_item_obj = CartItem.objects.create(cart=cart_obj, product_id=product_obj.id, quantity=10)
+    return cart_item_obj, user, cart_obj
+
+
+@pytest.fixture
+def create_cart_item_fxt_with_admin_user(create_not_completed_cart_with_admin_user, create_product):
+    cart_obj, user = create_not_completed_cart_with_admin_user
+    product_obj = create_product
+    cart_item_obj = CartItem.objects.create(cart=cart_obj, product_id=product_obj.id, quantity=10)
+    return cart_item_obj, user, cart_obj
 
 
 @pytest.mark.django_db
@@ -893,3 +935,184 @@ class TestPromotionDetailViewInvalidData:
         assert Promotion.objects.count() == 1
         update_promotion = Promotion.objects.get(id=promotion_obj.id)
         assert promotion_obj == update_promotion
+
+
+@pytest.mark.django_db
+class TestCartHistoryViewPermissions:
+    def test_cart_history_view_return_403_for_anonymous_user(self, create_completed_cart):
+        cart_obj, _ = create_completed_cart
+        client = APIClient()
+        url = 'get_cart_history'
+
+        response = client.get(reverse(url))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Cart.objects.count() == 1
+
+    def test_cart_history_view_return_carts_for_authenticated_user(self, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'get_cart_history'
+
+        response = client.get(reverse(url))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert Cart.objects.count() == 1
+
+    def test_cart_history_view_return_carts_for_admin_user(self, create_not_completed_cart_with_admin_user):
+        cart_obj, user = create_not_completed_cart_with_admin_user
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'get_cart_history'
+
+        response = client.get(reverse(url))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert Cart.objects.count() == 1
+
+
+@pytest.mark.django_db
+class TestCartViewPermissions:
+    def test_cart_view_return_403_for_anonymous_user(self):
+        client = APIClient()
+        url = 'manage_cart'
+
+        response = client.get(reverse(url))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_cart_view_return_cart_details_for_authenticated_user(self, create_not_completed_cart):
+        cart_obj, user = create_not_completed_cart
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+
+        response = client.get(reverse(url))
+
+        assert Cart.objects.count() == 1
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_authenticated_user_create_cart_item_return_200(self, create_not_completed_cart, create_product):
+        cart_obj, user = create_not_completed_cart
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        created_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert created_cart_item.product_id == data['product']
+        assert created_cart_item.quantity == data['quantity']
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_authenticated_user_update_cart_item_return_200(
+            self, create_product, create_cart_item_fxt):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 50
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert updated_cart_item.product_id == data['product']
+        assert updated_cart_item.quantity == data['quantity']
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_authenticated_user_delete_cart_item_return_200(self, create_product, create_cart_item_fxt):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 0
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cart_view_return_cart_details_for_admin_user(self, create_not_completed_cart_with_admin_user):
+        cart_obj, user = create_not_completed_cart_with_admin_user
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+
+        response = client.get(reverse(url))
+
+        assert Cart.objects.count() == 1
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_admin_user_create_cart_item_return_200(self, create_not_completed_cart_with_admin_user, create_product):
+        cart_obj, user = create_not_completed_cart_with_admin_user
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 10
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        created_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert created_cart_item.product_id == data['product']
+        assert created_cart_item.quantity == data['quantity']
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_admin_user_update_cart_item_return_200(self, create_product, create_cart_item_fxt_with_admin_user):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt_with_admin_user
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 100
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        updated_cart_item = CartItem.objects.get(cart_id=cart_obj.id)
+        assert CartItem.objects.count() == 1
+        assert updated_cart_item.product_id == data['product']
+        assert updated_cart_item.quantity == data['quantity']
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_if_admin_user_delete_cart_item_return_200(self, create_product, create_cart_item_fxt_with_admin_user):
+        cart_item_obj, user, cart_obj = create_cart_item_fxt_with_admin_user
+        product_obj = create_product
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = 'manage_cart'
+        data = {
+            'product': product_obj.id,
+            'quantity': 0
+        }
+
+        response = client.put(reverse(url), data=data, format='json')
+
+        assert CartItem.objects.count() == 0
+        assert response.status_code == status.HTTP_200_OK
+
+
+
+

@@ -2,6 +2,8 @@ import pytest
 import uuid
 from django.contrib.auth import get_user_model
 from django.http import Http404
+from rest_framework import serializers
+
 from store.models import Category, Product, Promotion, Cart, CartItem
 from store.logic import get_list_categories, get_category_details, get_list_products, get_product_details, \
     get_list_promotions, get_promotion_details, create_update_product_categories, create_update_product_promotions, \
@@ -332,6 +334,7 @@ class TestCartItemLogic:
 
         assert CartItem.objects.count() == 0
         assert product_obj.on_stock == initial_product_on_stock + (initial_cart_item_quantity - quantity)
+
 
 
 
