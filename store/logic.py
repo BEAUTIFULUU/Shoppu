@@ -3,7 +3,7 @@ from django.db.models import Count, Q, Prefetch, QuerySet
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status, serializers
 from rest_framework.response import Response
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, List
 
 from .models import Category, Product, Promotion, Cart, CartItem
 from .serializers import CartDetailsOutputSerializer
@@ -53,11 +53,11 @@ def create_update_product_promotions(product_obj: Product, promotions: list[Prom
     return product_obj.save()
 
 
-def pop_categories_from_product_data(serializer):
+def pop_categories_from_product_data(serializer) -> List[Category]:
     return serializer.validated_data.pop('categories', [])
 
 
-def pop_promotions_from_product_data(serializer):
+def pop_promotions_from_product_data(serializer) -> List[Promotion]:
     return serializer.validated_data.pop('promotions', [])
 
 
@@ -87,7 +87,7 @@ def get_cart_item(cart_obj: Cart, product_id: Product) -> Optional[CartItem]:
         return None
 
 
-def update_cart_item(cart_item_obj: CartItem, product_obj: Product, quantity: id) -> CartItem:
+def update_cart_item(cart_item_obj: CartItem, product_obj: Product, quantity: int) -> CartItem:
     quantity_diff = quantity - cart_item_obj.quantity
 
     product_obj.on_stock -= quantity_diff
@@ -103,7 +103,7 @@ def delete_cart_item(cart_item_obj: CartItem, product_obj: Product) -> None:
     cart_item_obj.delete()
 
 
-def create_cart_item(cart: Cart, quantity: id, product_obj: Product, product_id: id) -> CartItem:
+def create_cart_item(cart: Cart, quantity: int, product_obj: Product, product_id: int) -> CartItem:
     new_cart_item = []
 
     cart_item_data = CartItem(cart=cart, product_id=product_id.id, quantity=quantity)
@@ -118,7 +118,7 @@ def create_cart_item(cart: Cart, quantity: id, product_obj: Product, product_id:
 
 
 def create_update_delete_cart_item(
-        quantity: id, product_obj: Product, cart_item_obj: CartItem, cart_obj: Cart, product_id: int) -> Union[Response, None]:
+        quantity: int, product_obj: Product, cart_item_obj: CartItem, cart_obj: Cart, product_id: int) -> Response:
 
     error_message = 'Invalid product_id or quantity.'
     effective_stock = product_obj.on_stock
