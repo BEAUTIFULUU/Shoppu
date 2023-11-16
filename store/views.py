@@ -160,6 +160,8 @@ class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CartHistoryView(generics.ListAPIView):
     serializer_class = CartHistoryOutputSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['created_at']
     lookup_field = 'cart_id'
 
     def get_queryset(self) -> list[Cart]:

@@ -4,9 +4,6 @@ db.sqlite3
 
 *.pyc
 
-docker-compose.yml
-Dockerfile
-
 *.log
 
 static/
@@ -14,5 +11,7 @@ static/
 media/
 
 additionals.py
+
+playground.py
 
 
