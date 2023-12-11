@@ -15,14 +15,16 @@ class CategoryOutputSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['id', 'title', 'description', 'products_count']
+        fields = ["id", "title", "description", "products_count"]
 
 
 class ProductInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, required=True)
     description = serializers.CharField(max_length=200, required=True)
     unit_price = serializers.DecimalField(max_digits=6, decimal_places=2, required=True)
-    on_stock = serializers.IntegerField(required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)])
+    on_stock = serializers.IntegerField(
+        required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)]
+    )
     is_available = serializers.BooleanField(required=True)
     categories = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, required=True
@@ -63,8 +65,17 @@ class ProductOutputSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'title', 'categories', 'description', 'unit_price', 'on_stock', 'is_available',
-                  'discount_price', 'promotions']
+        fields = [
+            "id",
+            "title",
+            "categories",
+            "description",
+            "unit_price",
+            "on_stock",
+            "is_available",
+            "discount_price",
+            "promotions",
+        ]
 
 
 class PromotionInputSerializer(serializers.Serializer):
@@ -73,39 +84,52 @@ class PromotionInputSerializer(serializers.Serializer):
     start_date = serializers.DateField(required=False)
     end_date = serializers.DateField(required=False)
     discount_percentage = serializers.IntegerField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        required=True
+        validators=[MinValueValidator(0), MaxValueValidator(100)], required=True
     )
 
 
 class PromotionOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Promotion
-        fields = ['id', 'title', 'description', 'start_date', 'end_date', 'discount_percentage']
+        fields = [
+            "id",
+            "title",
+            "description",
+            "start_date",
+            "end_date",
+            "discount_percentage",
+        ]
 
 
 class CartHistoryOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
-        fields = ['id', 'created_at', 'is_completed']
+        fields = ["id", "created_at", "is_completed"]
 
 
 class CartItemInputSerializer(serializers.Serializer):
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=True)
-    quantity = serializers.IntegerField(required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)])
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), required=True
+    )
+    quantity = serializers.IntegerField(
+        required=True, validators=[MinValueValidator(0), MaxValueValidator(5000)]
+    )
 
 
 class CartItemOutputSerializer(serializers.ModelSerializer):
-    product_id = serializers.ReadOnlyField(source='product.id')
-    product_title = serializers.ReadOnlyField(source='product.title')
-    product_unit_price = serializers.ReadOnlyField(source='product.unit_price')
+    product_id = serializers.ReadOnlyField(source="product.id")
+    product_title = serializers.ReadOnlyField(source="product.title")
+    product_unit_price = serializers.ReadOnlyField(source="product.unit_price")
     product_promotions = serializers.SerializerMethodField()
     quantity = serializers.ReadOnlyField()
     total_price = serializers.SerializerMethodField(read_only=True)
 
     def get_total_price(self, obj):
         if obj.product.promotions.exists():
-            max_discount = max(promotion.discount_percentage for promotion in obj.product.promotions.all())
+            max_discount = max(
+                promotion.discount_percentage
+                for promotion in obj.product.promotions.all()
+            )
             discount_multiplier = 1 - (Decimal(max_discount / 100))
             total_price_with_discount = obj.product.unit_price * discount_multiplier
             return str(round(total_price_with_discount * obj.quantity, 2))
@@ -117,12 +141,21 @@ class CartItemOutputSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ['product_id', 'product_title', 'product_unit_price', 'product_promotions', 'quantity', 'total_price']
+        fields = [
+            "product_id",
+            "product_title",
+            "product_unit_price",
+            "product_promotions",
+            "quantity",
+            "total_price",
+        ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        representation['product_unit_price'] = "{:.2f}".format(instance.product.unit_price)
+        representation["product_unit_price"] = "{:.2f}".format(
+            instance.product.unit_price
+        )
 
         return representation
 
@@ -135,9 +168,9 @@ class CartDetailsOutputSerializer(serializers.ModelSerializer):
         total_cost = Decimal(0)
         cart_items_data = CartItemOutputSerializer(obj.cart_items, many=True).data
         for cart_item_data in cart_items_data:
-            total_cost += Decimal(cart_item_data['total_price'])
+            total_cost += Decimal(cart_item_data["total_price"])
         return str(round(total_cost, 2))
 
     class Meta:
         model = Cart
-        fields = ['id', 'created_at', 'cart_total_cost', 'cart_items']
+        fields = ["id", "created_at", "cart_total_cost", "cart_items"]

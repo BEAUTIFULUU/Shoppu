@@ -10,7 +10,7 @@ from .serializers import CartDetailsOutputSerializer
 
 
 def get_list_categories() -> QuerySet:
-    categories = Category.objects.all().annotate(products_count=Count('products'))
+    categories = Category.objects.all().annotate(products_count=Count("products"))
     return categories
 
 
@@ -20,12 +20,14 @@ def get_category_details(category_id: int) -> Category:
 
 
 def get_list_products() -> QuerySet:
-    products = Product.objects.prefetch_related('categories', 'promotions')
+    products = Product.objects.prefetch_related("categories", "promotions")
     return products
 
 
 def get_product_details(product_id: int) -> Product:
-    product_obj = Product.objects.filter(id=product_id).prefetch_related('categories', 'promotions')
+    product_obj = Product.objects.filter(id=product_id).prefetch_related(
+        "categories", "promotions"
+    )
     return get_object_or_404(product_obj)
 
 
@@ -43,22 +45,26 @@ def get_promotion_details(promotion_id: int) -> Promotion:
     return promotion_obj
 
 
-def create_update_product_categories(product_obj: Product, categories: list[Category]) -> Product:
+def create_update_product_categories(
+    product_obj: Product, categories: list[Category]
+) -> Product:
     product_obj.categories.set(categories)
     return product_obj.save()
 
 
-def create_update_product_promotions(product_obj: Product, promotions: list[Promotion]) -> Product:
+def create_update_product_promotions(
+    product_obj: Product, promotions: list[Promotion]
+) -> Product:
     product_obj.promotions.set(promotions)
     return product_obj.save()
 
 
 def pop_categories_from_product_data(serializer) -> List[Category]:
-    return serializer.validated_data.pop('categories', [])
+    return serializer.validated_data.pop("categories", [])
 
 
 def pop_promotions_from_product_data(serializer) -> List[Promotion]:
-    return serializer.validated_data.pop('promotions', [])
+    return serializer.validated_data.pop("promotions", [])
 
 
 def get_or_create_user_cart(user) -> Tuple[Cart, bool]:
@@ -74,8 +80,12 @@ def get_user_cart_history(user) -> QuerySet:
 def get_cart_details(user) -> Cart:
     return get_object_or_404(
         Cart.objects.filter(user=user, is_completed=False).prefetch_related(
-            Prefetch('cart_items', queryset=CartItem.objects.select_related('product')
-                     .prefetch_related('product__promotions'))
+            Prefetch(
+                "cart_items",
+                queryset=CartItem.objects.select_related("product").prefetch_related(
+                    "product__promotions"
+                ),
+            )
         )
     )
 
@@ -87,7 +97,9 @@ def get_cart_item(cart_obj: Cart, product_id: Product) -> Optional[CartItem]:
         return None
 
 
-def update_cart_item(cart_item_obj: CartItem, product_obj: Product, quantity: int) -> CartItem:
+def update_cart_item(
+    cart_item_obj: CartItem, product_obj: Product, quantity: int
+) -> CartItem:
     quantity_diff = quantity - cart_item_obj.quantity
 
     product_obj.on_stock -= quantity_diff
@@ -103,7 +115,9 @@ def delete_cart_item(cart_item_obj: CartItem, product_obj: Product) -> None:
     cart_item_obj.delete()
 
 
-def create_cart_item(cart: Cart, quantity: int, product_obj: Product, product_id: int) -> CartItem:
+def create_cart_item(
+    cart: Cart, quantity: int, product_obj: Product, product_id: int
+) -> CartItem:
     new_cart_item = []
 
     cart_item_data = CartItem(cart=cart, product_id=product_id.id, quantity=quantity)
@@ -118,9 +132,13 @@ def create_cart_item(cart: Cart, quantity: int, product_obj: Product, product_id
 
 
 def create_update_delete_cart_item(
-        quantity: int, product_obj: Product, cart_item_obj: CartItem, cart_obj: Cart, product_id: int) -> Response:
-
-    error_message = 'Invalid product_id or quantity.'
+    quantity: int,
+    product_obj: Product,
+    cart_item_obj: CartItem,
+    cart_obj: Cart,
+    product_id: int,
+) -> Response:
+    error_message = "Invalid product_id or quantity."
     effective_stock = product_obj.on_stock
     if cart_item_obj:
         effective_stock += cart_item_obj.quantity
@@ -130,17 +148,18 @@ def create_update_delete_cart_item(
     if cart_item_obj:
         if quantity == 0:
             delete_cart_item(cart_item_obj=cart_item_obj, product_obj=product_obj)
-            output_serializer = CartDetailsOutputSerializer(cart_obj)
-            return Response(output_serializer.data)
 
         elif effective_stock >= 0:
-            update_cart_item(cart_item_obj=cart_item_obj, product_obj=product_obj, quantity=quantity)
-            output_serializer = CartDetailsOutputSerializer(cart_obj)
-            return Response(output_serializer.data)
+            update_cart_item(
+                cart_item_obj=cart_item_obj, product_obj=product_obj, quantity=quantity
+            )
     else:
         if quantity <= product_obj.on_stock:
-            create_cart_item(cart=cart_obj, product_id=product_id, quantity=quantity, product_obj=product_obj)
-            output_serializer = CartDetailsOutputSerializer(cart_obj)
-            return Response(output_serializer.data)
+            create_cart_item(
+                cart=cart_obj,
+                product_id=product_id,
+                quantity=quantity,
+                product_obj=product_obj,
+            )
 
     raise serializers.ValidationError(error_message)

@@ -5,48 +5,51 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('store', '0001_initial'),
+        ("store", "0001_initial"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='cart',
-            name='products',
+            model_name="cart",
+            name="products",
         ),
         migrations.RemoveField(
-            model_name='cartitem',
-            name='product',
+            model_name="cartitem",
+            name="product",
         ),
         migrations.AddField(
-            model_name='cart',
-            name='is_completed',
+            model_name="cart",
+            name="is_completed",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='cart',
-            name='items',
-            field=models.ManyToManyField(related_name='carts', to='store.cartitem'),
+            model_name="cart",
+            name="items",
+            field=models.ManyToManyField(related_name="carts", to="store.cartitem"),
         ),
         migrations.AddField(
-            model_name='cartitem',
-            name='products',
-            field=models.ManyToManyField(related_name='cart_items', to='store.product'),
+            model_name="cartitem",
+            name="products",
+            field=models.ManyToManyField(related_name="cart_items", to="store.product"),
         ),
         migrations.AlterField(
-            model_name='cartitem',
-            name='cart',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='cart_items', to='store.cart'),
+            model_name="cartitem",
+            name="cart",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="cart_items",
+                to="store.cart",
+            ),
         ),
         migrations.AlterField(
-            model_name='promotion',
-            name='end_date',
+            model_name="promotion",
+            name="end_date",
             field=models.DateField(blank=True),
         ),
         migrations.AlterField(
-            model_name='promotion',
-            name='start_date',
+            model_name="promotion",
+            name="start_date",
             field=models.DateField(blank=True),
         ),
     ]
