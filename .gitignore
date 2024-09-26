@@ -1,0 +1,17 @@
+*.env
+
+db.sqlite3
+
+*.pyc
+
+*.log
+
+static/
+
+media/
+
+additionals.py
+
+playground.py
+
+
